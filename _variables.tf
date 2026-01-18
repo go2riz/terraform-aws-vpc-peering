@@ -29,3 +29,9 @@ variable "enable_remote_vpc_dns_resolution" {
   type        = bool
   default     = false
 }
+
+variable "peer_rule_numbers" {
+  description = "Optional override map of requester subnet CIDR -> rule_number for accepter-side peer allow NACL rules. If empty, rule numbers are generated as 1000 + index based on sorted requester subnet ids."
+  type        = map(number)
+  default     = {}
+}

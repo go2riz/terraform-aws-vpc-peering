@@ -27,21 +27,29 @@ locals {
   ]))
 
   # CIDR blocks for all requester subnets used for NACL allow rules.
-  requester_cidrs_sorted = sort(distinct([
-    for s in values(data.aws_subnet.requester) : s.cidr_block
-  ]))
+  # IMPORTANT: We intentionally derive the ordering from *sorted subnet ids*
+  # (not from sorting CIDRs). This mirrors how older versions of this module
+  # typically assigned rule numbers and avoids rule_number churn when moving
+  # from count -> for_each keyed by cidr.
+  requester_subnet_ids_sorted   = sort(tolist(local.requester_subnet_id_set))
+  requester_cidrs_ordered       = [for id in local.requester_subnet_ids_sorted : data.aws_subnet.requester[id].cidr_block]
+  requester_cidrs_ordered_dedup = distinct(local.requester_cidrs_ordered)
 
   # Deterministic rule_number assignment.
-  # Keeps legacy numbering (1000 + index) but makes it deterministic.
+  # By default: 1000 + index, using the subnet-id-based ordering above.
   generated_peer_rule_numbers = {
-    for idx, cidr in local.requester_cidrs_sorted : cidr => 1000 + idx
+    for idx, cidr in local.requester_cidrs_ordered_dedup : cidr => 1000 + idx
   }
 
+  # Optional override to preserve existing rule_number mappings exactly.
+  # If provided, we only take overrides for CIDRs that are currently in-scope.
+  peer_rule_numbers_effective = length(var.peer_rule_numbers) > 0 ? {
+    for cidr, num in var.peer_rule_numbers : cidr => num
+    if contains(local.requester_cidrs_ordered_dedup, cidr)
+  } : local.generated_peer_rule_numbers
+
   # Final per-NACL maps used by NACL rule resources.
-  # NOTE: The AWS provider does not have a data source for a single Network ACL
-  # entry set (only the plural aws_network_acls), so we intentionally do not try
-  # to read existing entries to preserve legacy rule_number mappings.
-  accepter_public_peer_rule_numbers  = local.generated_peer_rule_numbers
-  accepter_private_peer_rule_numbers = local.generated_peer_rule_numbers
-  accepter_secure_peer_rule_numbers  = local.generated_peer_rule_numbers
+  accepter_public_peer_rule_numbers  = local.peer_rule_numbers_effective
+  accepter_private_peer_rule_numbers = local.peer_rule_numbers_effective
+  accepter_secure_peer_rule_numbers  = local.peer_rule_numbers_effective
 }

@@ -14,7 +14,9 @@ These resources now use `for_each` with stable keys:
 - NACL rules: keyed by `cidr_block`
 - Routes: keyed by `route_table_id`
 
-Additionally, accepter-side NACL rule numbers are derived in a way that **preserves existing rule_number ↔ CIDR mapping** where rules already exist, so a migrated state should converge with little/no change.
+Additionally, accepter-side NACL rule numbers are derived from **sorted requester subnet ids** (not sorted CIDRs). This mirrors how older versions of this module typically assigned rule numbers and helps avoid churn during migration.
+
+If you still see `rule_number` changes after migrating state, you can pin the exact mapping using the optional `peer_rule_numbers` input (CIDR -> rule_number).
 
 ## How to migrate an existing stack
 
@@ -37,9 +39,23 @@ Additionally, accepter-side NACL rule numbers are derived in a way that **preser
    terraform plan
    ```
 
-You should now see the ordering-related replacements disappear.
+You should now see the ordering-related replacements disappear (or be greatly reduced).
 
 ## Notes
 
 - The script uses `terraform state show` to discover each instance's `cidr_block` / `route_table_id`, then runs the corresponding `terraform state mv` command.
 - If your state contains *no* legacy indexed resources (fresh deployment), the script does nothing.
+
+### Optional: Pin rule numbers exactly
+
+If you have existing NACL rules and want to ensure Terraform never reshuffles their `rule_number`, pass the current mapping into the module:
+
+```hcl
+peer_rule_numbers = {
+  "10.37.128.0/21" = 1000
+  "10.37.136.0/21" = 1001
+  "10.37.120.0/21" = 1002
+}
+```
+
+You can copy the mapping from `terraform state show` for any one of the accepter-side NACL rule resources.
