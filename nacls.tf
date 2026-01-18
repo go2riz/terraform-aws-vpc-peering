@@ -1,74 +1,82 @@
+# Accepter side NACL rules (allow requester subnets into accepter subnets)
 resource "aws_network_acl_rule" "in_accepter_public_from_requester" {
-  provider       = aws.peer
-  count          = length(data.aws_subnet.requester)
+  provider = aws.peer
+  for_each = local.accepter_public_peer_rule_numbers
+
   network_acl_id = local.accepter_public_nacl_id
-  rule_number    = 1000 + count.index
+  rule_number    = each.value
   egress         = false
-  protocol       = -1
+  protocol       = "-1"
   rule_action    = "allow"
-  cidr_block     = data.aws_subnet.requester[count.index].cidr_block
+  cidr_block     = each.key
 }
 
 resource "aws_network_acl_rule" "out_accepter_public_to_requester" {
-  provider       = aws.peer
-  count          = length(data.aws_subnet.requester)
+  provider = aws.peer
+  for_each = local.accepter_public_peer_rule_numbers
+
   network_acl_id = local.accepter_public_nacl_id
-  rule_number    = 1000 + count.index
+  rule_number    = each.value
   egress         = true
-  protocol       = -1
+  protocol       = "-1"
   rule_action    = "allow"
-  cidr_block     = data.aws_subnet.requester[count.index].cidr_block
+  cidr_block     = each.key
 }
 
 resource "aws_network_acl_rule" "in_accepter_private_from_requester" {
-  provider       = aws.peer
-  count          = length(data.aws_subnet.requester)
+  provider = aws.peer
+  for_each = local.accepter_private_peer_rule_numbers
+
   network_acl_id = local.accepter_private_nacl_id
-  rule_number    = 1000 + count.index
+  rule_number    = each.value
   egress         = false
-  protocol       = -1
+  protocol       = "-1"
   rule_action    = "allow"
-  cidr_block     = data.aws_subnet.requester[count.index].cidr_block
+  cidr_block     = each.key
 }
 
 resource "aws_network_acl_rule" "out_accepter_private_to_requester" {
-  provider       = aws.peer
-  count          = length(data.aws_subnet.requester)
+  provider = aws.peer
+  for_each = local.accepter_private_peer_rule_numbers
+
   network_acl_id = local.accepter_private_nacl_id
-  rule_number    = 1000 + count.index
+  rule_number    = each.value
   egress         = true
-  protocol       = -1
+  protocol       = "-1"
   rule_action    = "allow"
-  cidr_block     = data.aws_subnet.requester[count.index].cidr_block
+  cidr_block     = each.key
 }
 
 resource "aws_network_acl_rule" "in_accepter_secure_from_requester" {
-  provider       = aws.peer
-  count          = length(data.aws_subnet.requester)
+  provider = aws.peer
+  for_each = local.accepter_secure_peer_rule_numbers
+
   network_acl_id = local.accepter_secure_nacl_id
-  rule_number    = 1000 + count.index
+  rule_number    = each.value
   egress         = false
-  protocol       = -1
+  protocol       = "-1"
   rule_action    = "allow"
-  cidr_block     = data.aws_subnet.requester[count.index].cidr_block
+  cidr_block     = each.key
 }
 
 resource "aws_network_acl_rule" "out_accepter_secure_to_requester" {
-  provider       = aws.peer
-  count          = length(data.aws_subnet.requester)
+  provider = aws.peer
+  for_each = local.accepter_secure_peer_rule_numbers
+
   network_acl_id = local.accepter_secure_nacl_id
-  rule_number    = 1000 + count.index
+  rule_number    = each.value
   egress         = true
-  protocol       = -1
+  protocol       = "-1"
   rule_action    = "allow"
-  cidr_block     = data.aws_subnet.requester[count.index].cidr_block
+  cidr_block     = each.key
 }
 
+# Requester side NACL rules (allow accepter VPC CIDR into requester)
 resource "aws_network_acl_rule" "in_requester_from_accepter" {
   network_acl_id = local.requester_nacl_id
   rule_number    = 1000 + var.serial
   egress         = false
-  protocol       = -1
+  protocol       = "-1"
   rule_action    = "allow"
   cidr_block     = data.aws_vpc.accepter.cidr_block
 }
@@ -77,7 +85,7 @@ resource "aws_network_acl_rule" "out_requester_to_accepter" {
   network_acl_id = local.requester_nacl_id
   rule_number    = 1000 + var.serial
   egress         = true
-  protocol       = -1
+  protocol       = "-1"
   rule_action    = "allow"
   cidr_block     = data.aws_vpc.accepter.cidr_block
 }

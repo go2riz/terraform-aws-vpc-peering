@@ -78,3 +78,15 @@ If your VPCs use different tagging, you will need to adapt the filters.
 * Replaced legacy interpolation-only syntax (`"${...}"`) with Terraform 1.x HCL.
 * Added optional peering DNS resolution support (`enable_remote_vpc_dns_resolution`). Default is `false` to preserve legacy behaviour.
 * Added `one(...)` to ensure exactly one Network ACL is matched per `Scheme`.
+
+## Ordering-churn fix (recommended)
+
+Newer AWS provider versions (and AWS APIs) can return subnet/route table lists in a different order.
+If resources are created with `count`, that can lead to noisy plans that want to **replace** NACL rules
+and routes even though the logical configuration didn't change.
+
+This module now uses `for_each` keyed by **CIDR** (NACL rules) and **route table id** (routes) to avoid
+that churn.
+
+If you are upgrading an existing deployment, follow **MIGRATION.md** to move state addresses so you
+don't recreate live rules/routes.

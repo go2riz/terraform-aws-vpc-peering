@@ -8,7 +8,8 @@ data "aws_vpc" "accepter" {
 }
 
 # NOTE: aws_subnet_ids data source was removed in AWS provider v5.
-# We use aws_subnets instead and sort IDs for stable ordering.
+# We use aws_subnets instead. Downstream resources are keyed by stable identifiers
+# so changes in returned ordering never cause diffs.
 data "aws_subnets" "requester" {
   filter {
     name   = "vpc-id"
@@ -22,8 +23,9 @@ data "aws_subnets" "requester" {
 }
 
 data "aws_subnet" "requester" {
-  count = length(local.requester_subnet_ids)
-  id    = local.requester_subnet_ids[count.index]
+  # Key by subnet ID to avoid index-based churn.
+  for_each = local.requester_subnet_id_set
+  id       = each.key
 }
 
 data "aws_subnets" "accepter_public" {
@@ -70,25 +72,25 @@ data "aws_subnets" "accepter_secure" {
 
 data "aws_route_table" "accepter_public" {
   provider  = aws.peer
-  count     = length(local.accepter_public_subnet_ids)
-  subnet_id = local.accepter_public_subnet_ids[count.index]
+  for_each  = local.accepter_public_subnet_id_set
+  subnet_id = each.key
 }
 
 data "aws_route_table" "accepter_private" {
   provider  = aws.peer
-  count     = length(local.accepter_private_subnet_ids)
-  subnet_id = local.accepter_private_subnet_ids[count.index]
+  for_each  = local.accepter_private_subnet_id_set
+  subnet_id = each.key
 }
 
 data "aws_route_table" "accepter_secure" {
   provider  = aws.peer
-  count     = length(local.accepter_secure_subnet_ids)
-  subnet_id = local.accepter_secure_subnet_ids[count.index]
+  for_each  = local.accepter_secure_subnet_id_set
+  subnet_id = each.key
 }
 
 data "aws_route_table" "requester" {
-  count     = length(local.requester_subnet_ids)
-  subnet_id = local.requester_subnet_ids[count.index]
+  for_each  = local.requester_subnet_id_set
+  subnet_id = each.key
 }
 
 data "aws_network_acls" "accepter_public" {
@@ -124,4 +126,21 @@ data "aws_network_acls" "requester" {
   tags = {
     Scheme = "transit"
   }
+}
+
+# Read the resolved NACLs so we can reuse existing rule_number assignments
+# and avoid index/order based churn.
+data "aws_network_acl" "accepter_public" {
+  provider = aws.peer
+  id       = local.accepter_public_nacl_id
+}
+
+data "aws_network_acl" "accepter_private" {
+  provider = aws.peer
+  id       = local.accepter_private_nacl_id
+}
+
+data "aws_network_acl" "accepter_secure" {
+  provider = aws.peer
+  id       = local.accepter_secure_nacl_id
 }
