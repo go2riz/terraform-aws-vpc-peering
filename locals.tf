@@ -31,53 +31,17 @@ locals {
     for s in values(data.aws_subnet.requester) : s.cidr_block
   ]))
 
-  # Default rule_number assignment if no existing NACL rules are found.
+  # Deterministic rule_number assignment.
   # Keeps legacy numbering (1000 + index) but makes it deterministic.
   generated_peer_rule_numbers = {
     for idx, cidr in local.requester_cidrs_sorted : cidr => 1000 + idx
   }
 
-  # Existing rule_number mappings from NACL entries (if rules already exist).
-  # We use these to preserve the existing rule_number<->CIDR association,
-  # eliminating replacements when subnet ordering changes.
-  _accepter_public_existing_ingress = {
-    for e in data.aws_network_acl.accepter_public.ingress : e.cidr_block => e.rule_number
-    if e.rule_action == "allow" && tostring(e.protocol) == "-1" && contains(local.requester_cidrs_sorted, e.cidr_block) && e.rule_number >= 1000 && e.rule_number < 2000
-  }
-  _accepter_public_existing_egress = {
-    for e in data.aws_network_acl.accepter_public.egress : e.cidr_block => e.rule_number
-    if e.rule_action == "allow" && tostring(e.protocol) == "-1" && contains(local.requester_cidrs_sorted, e.cidr_block) && e.rule_number >= 1000 && e.rule_number < 2000
-  }
-  accepter_public_existing_rule_numbers = merge(local._accepter_public_existing_ingress, local._accepter_public_existing_egress)
-
-  _accepter_private_existing_ingress = {
-    for e in data.aws_network_acl.accepter_private.ingress : e.cidr_block => e.rule_number
-    if e.rule_action == "allow" && tostring(e.protocol) == "-1" && contains(local.requester_cidrs_sorted, e.cidr_block) && e.rule_number >= 1000 && e.rule_number < 2000
-  }
-  _accepter_private_existing_egress = {
-    for e in data.aws_network_acl.accepter_private.egress : e.cidr_block => e.rule_number
-    if e.rule_action == "allow" && tostring(e.protocol) == "-1" && contains(local.requester_cidrs_sorted, e.cidr_block) && e.rule_number >= 1000 && e.rule_number < 2000
-  }
-  accepter_private_existing_rule_numbers = merge(local._accepter_private_existing_ingress, local._accepter_private_existing_egress)
-
-  _accepter_secure_existing_ingress = {
-    for e in data.aws_network_acl.accepter_secure.ingress : e.cidr_block => e.rule_number
-    if e.rule_action == "allow" && tostring(e.protocol) == "-1" && contains(local.requester_cidrs_sorted, e.cidr_block) && e.rule_number >= 1000 && e.rule_number < 2000
-  }
-  _accepter_secure_existing_egress = {
-    for e in data.aws_network_acl.accepter_secure.egress : e.cidr_block => e.rule_number
-    if e.rule_action == "allow" && tostring(e.protocol) == "-1" && contains(local.requester_cidrs_sorted, e.cidr_block) && e.rule_number >= 1000 && e.rule_number < 2000
-  }
-  accepter_secure_existing_rule_numbers = merge(local._accepter_secure_existing_ingress, local._accepter_secure_existing_egress)
-
   # Final per-NACL maps used by NACL rule resources.
-  accepter_public_peer_rule_numbers = {
-    for cidr in local.requester_cidrs_sorted : cidr => lookup(local.accepter_public_existing_rule_numbers, cidr, local.generated_peer_rule_numbers[cidr])
-  }
-  accepter_private_peer_rule_numbers = {
-    for cidr in local.requester_cidrs_sorted : cidr => lookup(local.accepter_private_existing_rule_numbers, cidr, local.generated_peer_rule_numbers[cidr])
-  }
-  accepter_secure_peer_rule_numbers = {
-    for cidr in local.requester_cidrs_sorted : cidr => lookup(local.accepter_secure_existing_rule_numbers, cidr, local.generated_peer_rule_numbers[cidr])
-  }
+  # NOTE: The AWS provider does not have a data source for a single Network ACL
+  # entry set (only the plural aws_network_acls), so we intentionally do not try
+  # to read existing entries to preserve legacy rule_number mappings.
+  accepter_public_peer_rule_numbers  = local.generated_peer_rule_numbers
+  accepter_private_peer_rule_numbers = local.generated_peer_rule_numbers
+  accepter_secure_peer_rule_numbers  = local.generated_peer_rule_numbers
 }

@@ -128,19 +128,8 @@ data "aws_network_acls" "requester" {
   }
 }
 
-# Read the resolved NACLs so we can reuse existing rule_number assignments
-# and avoid index/order based churn.
-data "aws_network_acl" "accepter_public" {
-  provider = aws.peer
-  id       = local.accepter_public_nacl_id
-}
-
-data "aws_network_acl" "accepter_private" {
-  provider = aws.peer
-  id       = local.accepter_private_nacl_id
-}
-
-data "aws_network_acl" "accepter_secure" {
-  provider = aws.peer
-  id       = local.accepter_secure_nacl_id
-}
+# NOTE: The AWS provider exposes `aws_network_acls` (plural) as a data source.
+# There is no supported singular `aws_network_acl` data source.
+#
+# We therefore *don't* attempt to read existing NACL entries to preserve rule numbers.
+# Rule numbers are generated deterministically in `locals.tf`.
